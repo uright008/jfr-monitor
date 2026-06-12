@@ -11,7 +11,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HopperBlock;
-import net.minecraft.world.phys.AABB;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
@@ -26,7 +25,6 @@ public abstract class HopperStressMixin {
     @Unique private static final Logger LOG = LoggerFactory.getLogger("stress-test:hopper");
     @Unique private static final int GRID = 16;
     @Unique private static final int BASE_Y = -60;
-    @Unique private static final int MIN_ITEMS = 2000;
     @Unique private int stage;
     @Unique private int stressTickCount;
 
@@ -53,25 +51,20 @@ public abstract class HopperStressMixin {
             return;
         }
 
-        // Stage 2+: replenish items
+        // Stage 2+: spawn items above hoppers every tick
         stressTickCount++;
         int timeout = StressTestConfig.timeoutSeconds();
         if (timeout > 0 && stressTickCount > timeout * 20) return;
 
-        AABB gridArea = new AABB(0, BASE_Y + 2, 0, GRID, BASE_Y + 3, GRID);
-        int itemCount = level.getEntitiesOfClass(ItemEntity.class, gridArea, e -> true).size();
-
-        if (itemCount < MIN_ITEMS) {
-            BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-            for (int z = 0; z < GRID; z++) {
-                for (int x = 0; x < GRID; x++) {
-                    ItemEntity item = new ItemEntity(EntityType.ITEM, level);
-                    item.setItem(new ItemStack(Items.STONE, 1));
-                    item.setPos(x + 0.5, BASE_Y + 2.5, z + 0.5);
-                    item.setDeltaMovement(0, 0, 0);
-                    item.setPickUpDelay(0);
-                    level.addFreshEntity(item);
-                }
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        for (int z = 0; z < GRID; z++) {
+            for (int x = 0; x < GRID; x++) {
+                ItemEntity item = new ItemEntity(EntityType.ITEM, level);
+                item.setItem(new ItemStack(Items.STONE, 1));
+                item.setPos(x + 0.5, BASE_Y + 2.5, z + 0.5);
+                item.setDeltaMovement(0, 0, 0);
+                item.setPickUpDelay(0);
+                level.addFreshEntity(item);
             }
         }
     }
