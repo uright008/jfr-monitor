@@ -74,16 +74,35 @@ public abstract class StressTestMixin {
             for (int cz = -r; cz < r; cz++) {
                 int bx = cx * 16 + 8, bz = cz * 16 + 8;
 
+                // 4 layers stone above TNT
                 for (int dx = -half; dx <= half; dx++)
-                    for (int dy = -half; dy <= half; dy++)
+                    for (int dy = size; dy < size + 4; dy++)
+                        for (int dz = -half; dz <= half; dz++) {
+                            pos.set(bx + dx, BASE_Y + dy, bz + dz);
+                            if (!level.getBlockState(pos).is(Blocks.STONE))
+                                level.setBlock(pos, Blocks.STONE.defaultBlockState(), 3);
+                        }
+
+                // Middle: size layers of TNT
+                for (int dx = -half; dx <= half; dx++)
+                    for (int dy = 0; dy < size; dy++)
                         for (int dz = -half; dz <= half; dz++) {
                             pos.set(bx + dx, BASE_Y + dy, bz + dz);
                             if (!level.getBlockState(pos).is(Blocks.TNT))
                                 level.setBlock(pos, Blocks.TNT.defaultBlockState(), 3);
                         }
 
+                // 4 layers stone below TNT
+                for (int dx = -half; dx <= half; dx++)
+                    for (int dy = -4; dy < 0; dy++)
+                        for (int dz = -half; dz <= half; dz++) {
+                            pos.set(bx + dx, BASE_Y + dy, bz + dz);
+                            if (!level.getBlockState(pos).is(Blocks.STONE))
+                                level.setBlock(pos, Blocks.STONE.defaultBlockState(), 3);
+                        }
+
                 PrimedTnt tnt = new PrimedTnt(EntityType.TNT, level);
-                tnt.setPos(bx + 0.5, BASE_Y, bz + 0.5);
+                tnt.setPos(bx + 0.5, BASE_Y + 1, bz + 0.5);
                 tnt.setFuse(1);
                 level.addFreshEntity(tnt);
             }
