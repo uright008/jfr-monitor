@@ -1,4 +1,4 @@
-package com.github.uright008.jfr;
+package com.github.uright008.tester;
 
 import jdk.jfr.*;
 import org.slf4j.Logger;
@@ -12,19 +12,19 @@ import java.time.format.DateTimeFormatter;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * JFR diagnostic recording for mc-parallel performance analysis.
+ * Profiler diagnostic recording for mc-parallel performance analysis.
  *
- * <p>Default: 30 seconds, all threads, outputs to jfr/.
+ * <p>Default: 30 seconds, all threads, outputs to profiler/.
  * Fully non-blocking for interactive use; synchronous dump available via {@link #stopSync()}.
  */
-public final class JfrMonitor {
+public final class ProfilerMonitor {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("mc-parallel:jfr");
-    private static final String OUTPUT_DIR = "jfr";
+    private static final Logger LOGGER = LoggerFactory.getLogger("mc-parallel:profiler");
+    private static final String OUTPUT_DIR = "profiler";
 
     private static final AtomicReference<Recording> activeRecording = new AtomicReference<>();
 
-    private JfrMonitor() {}
+    private ProfilerMonitor() {}
 
     public static void start(int seconds) {
         Recording recording = new Recording();
@@ -48,18 +48,18 @@ public final class JfrMonitor {
         if (!activeRecording.compareAndSet(null, recording)) {
             recording.stop();
             recording.close();
-            LOGGER.warn("JFR recording already active — start request ignored");
+            LOGGER.warn("Profiler recording already active — start request ignored");
             return;
         }
 
-        LOGGER.info("JFR recording started ({} seconds, output: jfr/)", seconds);
+        LOGGER.info("Profiler recording started ({} seconds, output: profiler/)", seconds);
     }
 
     /** Atomically claims the active recording, stops it, and dumps to disk on a background thread. */
     public static void stop() {
         Recording recording = activeRecording.getAndSet(null);
         if (recording == null) {
-            LOGGER.warn("No active JFR recording");
+            LOGGER.warn("No active Profiler recording");
             return;
         }
         try {
@@ -74,7 +74,7 @@ public final class JfrMonitor {
             try {
                 dumpAndClose(recording, filename);
             } catch (IOException e) {
-                LOGGER.error("Failed to save JFR recording", e);
+                LOGGER.error("Failed to save Profiler recording", e);
             }
         }, "jfr-dump");
         dumpThread.setDaemon(true);
@@ -85,7 +85,7 @@ public final class JfrMonitor {
     public static Path stopSync() {
         Recording recording = activeRecording.getAndSet(null);
         if (recording == null) {
-            LOGGER.warn("No active JFR recording");
+            LOGGER.warn("No active Profiler recording");
             return null;
         }
         try {
@@ -97,10 +97,10 @@ public final class JfrMonitor {
         String filename = newFilename();
         try {
             Path path = dumpAndClose(recording, filename);
-            LOGGER.info("JFR recording saved to: {}", path.toAbsolutePath());
+            LOGGER.info("Profiler recording saved to: {}", path.toAbsolutePath());
             return path;
         } catch (IOException e) {
-            LOGGER.error("Failed to save JFR recording", e);
+            LOGGER.error("Failed to save Profiler recording", e);
             return null;
         }
     }

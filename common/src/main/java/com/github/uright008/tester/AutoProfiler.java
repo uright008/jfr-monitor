@@ -1,4 +1,4 @@
-package com.github.uright008.jfr;
+package com.github.uright008.tester;
 
 import com.github.uright008.pc.ServerHelper;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -8,21 +8,21 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
 
-public final class JfrAutoProfiler {
+public final class AutoProfiler {
 
-    private static final Logger LOG = LoggerFactory.getLogger("mc-parallel:jfr-auto");
+    private static final Logger LOG = LoggerFactory.getLogger("mc-parallel:profiler");
 
-    private JfrAutoProfiler() {}
+    private AutoProfiler() {}
 
     public static void register() {
-        if (!JfrProfileConfig.isAutoProfile()) return;
-        ServerLifecycleEvents.SERVER_STARTED.register(JfrAutoProfiler::onServerStarted);
+        if (!ProfileConfig.isAutoProfile()) return;
+        ServerLifecycleEvents.SERVER_STARTED.register(AutoProfiler::onServerStarted);
         LOG.info("Auto-profile registered");
     }
 
     private static void onServerStarted(MinecraftServer server) {
-        int warmup = JfrProfileConfig.warmupSeconds();
-        int record = JfrProfileConfig.recordSeconds();
+        int warmup = ProfileConfig.warmupSeconds();
+        int record = ProfileConfig.recordSeconds();
         int timeout = StressTestConfig.timeoutSeconds();
         LOG.info("Auto-profile: warmup {}s, record {}s, timeout {}s {}", warmup, record, timeout, timeout == 0 ? "(infinite)" : "");
 

@@ -1,6 +1,6 @@
-package com.github.uright008.jfr.mixin;
+package com.github.uright008.tester.mixin;
 
-import com.github.uright008.jfr.StressTestConfig;
+import com.github.uright008.tester.StressTestConfig;
 import com.github.uright008.pc.ServerHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -36,7 +36,7 @@ public abstract class StressTestMixin {
     @Unique private static final int HOPPER_Y = -60;
 
     @Unique private int stage, tickCount;
-    @Unique private boolean stopped;
+    @Unique private boolean tntBuilt, entityBuilt, stopped;
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void stressTestTick(CallbackInfo ci) {
@@ -58,17 +58,15 @@ public abstract class StressTestMixin {
             return;
         }
 
-        // Stage 1: build TNT sandwich (once)
-        if (tnt && stage == 1) {
+        // Build phases — each independent
+        if (tnt && !tntBuilt) {
             buildTntSandwich(level);
-            stage = 2;
+            tntBuilt = true;
             return;
         }
-
-        // Stage 2: build entity platform (once)
-        if (entity && stage == 2) {
+        if (entity && !entityBuilt) {
             buildEntityPlatform(level);
-            stage = 3;
+            entityBuilt = true;
         }
 
         tickCount++;

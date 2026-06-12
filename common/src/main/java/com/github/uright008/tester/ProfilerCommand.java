@@ -1,4 +1,4 @@
-package com.github.uright008.jfr;
+package com.github.uright008.tester;
 
 import com.github.uright008.pc.command.ParallelCommand;
 import com.github.uright008.pc.command.ParallelSubCommand;
@@ -9,9 +9,9 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 
-public final class JfrCommand implements ParallelSubCommand {
+public final class ProfilerCommand implements ParallelSubCommand {
 
-    @Override public String getName() { return "jfr"; }
+    @Override public String getName() { return "profiler"; }
 
     @Override
     public void build(LiteralArgumentBuilder<CommandSourceStack> builder) {
@@ -26,28 +26,28 @@ public final class JfrCommand implements ParallelSubCommand {
 
     @Override
     public String getStatusLine() {
-        return "\u00a77  JFR:       " + (JfrMonitor.isRecording() ? "\u00a7aREC" : "\u00a77off");
+        return "\u00a77  JFR:       " + (ProfilerMonitor.isRecording() ? "\u00a7aREC" : "\u00a77off");
     }
 
     private int showStatus(CommandContext<CommandSourceStack> ctx) {
         String msg = "\u00a7e/parallel jfr\n"
-                + "\u00a77  Status: " + (JfrMonitor.isRecording() ? "\u00a7aRECORDING" : "\u00a77idle") + "\n"
+                + "\u00a77  Status: " + (ProfilerMonitor.isRecording() ? "\u00a7aRECORDING" : "\u00a77idle") + "\n"
                 + "\u00a77Usage: /parallel jfr [start [seconds] | stop]";
         ctx.getSource().sendSuccess(() -> Component.literal(msg), false);
         return 1;
     }
 
     private int start(CommandContext<CommandSourceStack> ctx, int seconds) {
-        JfrMonitor.autoRecord(seconds);
+        ProfilerMonitor.autoRecord(seconds);
         ctx.getSource().sendSuccess(
-                () -> Component.literal("\u00a7aJFR recording started (" + seconds + "s) → run/jfr/"), true);
+                () -> Component.literal("\u00a7aJFR recording started (" + seconds + "s) → run/profiler/"), true);
         return 1;
     }
 
     private int stop(CommandContext<CommandSourceStack> ctx) {
-        JfrMonitor.stop();
+        ProfilerMonitor.stop();
         ctx.getSource().sendSuccess(
-                () -> Component.literal("\u00a7aJFR recording saved to run/jfr/"), true);
+                () -> Component.literal("\u00a7aJFR recording saved to run/profiler/"), true);
         return 1;
     }
 }

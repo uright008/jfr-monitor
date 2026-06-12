@@ -1,4 +1,4 @@
-package com.github.uright008.jfr;
+package com.github.uright008.tester;
 
 import com.google.gson.JsonObject;
 import com.github.uright008.pc.ParallelConfig;
@@ -28,6 +28,13 @@ public final class StressTestConfig extends ParallelConfig {
     public static int chunkRadius() { return INSTANCE.chunkRadius; }
     public static int tntSize() { return INSTANCE.tntSize; }
     public static int entitySpawnRate() { return INSTANCE.entitySpawnRate; }
+
+    public static String getMode() { return INSTANCE.mode; }
+    public static void setMode(String v) { INSTANCE.mode = v; INSTANCE.save(); }
+    public static void setTimeout(int v) { INSTANCE.timeoutSeconds = v; INSTANCE.save(); }
+    public static void setChunkRadius(int v) { INSTANCE.chunkRadius = Math.max(1, v); INSTANCE.save(); }
+    public static void setTntSize(int v) { INSTANCE.tntSize = Math.max(1, Math.min(5, v)); INSTANCE.save(); }
+    public static void setEntitySpawnRate(int v) { INSTANCE.entitySpawnRate = Math.max(1, v); INSTANCE.save(); }
 
     @Override
     protected void applyDefaults() {

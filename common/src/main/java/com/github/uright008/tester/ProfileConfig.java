@@ -1,11 +1,11 @@
-package com.github.uright008.jfr;
+package com.github.uright008.tester;
 
 import com.google.gson.JsonObject;
 import com.github.uright008.pc.ParallelConfig;
 
-public final class JfrProfileConfig extends ParallelConfig {
+public final class ProfileConfig extends ParallelConfig {
 
-    private static final JfrProfileConfig INSTANCE = new JfrProfileConfig();
+    private static final ProfileConfig INSTANCE = new ProfileConfig();
 
     private volatile boolean autoProfile;
     private volatile int warmupSeconds;
@@ -15,7 +15,7 @@ public final class JfrProfileConfig extends ParallelConfig {
     private volatile int botZ;
     private volatile String postSpawnCommand;
 
-    private JfrProfileConfig() {
+    private ProfileConfig() {
         super("jfr-monitor");
     }
 
