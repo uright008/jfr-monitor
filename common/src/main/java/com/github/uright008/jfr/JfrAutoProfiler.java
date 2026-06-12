@@ -49,7 +49,7 @@ public final class JfrAutoProfiler {
                 Thread.sleep(TimeUnit.SECONDS.toMillis(warmup));
                 logMspt(server, "pre-record");
 
-                // ── Start spark profiler (30s, all threads) ──
+                // ── Start spark profiler ──
                 runCommand(server, "spark profiler start --timeout " + record + " --thread *");
                 LOG.info("Spark profiler started ({} seconds)", record);
 
