@@ -58,6 +58,19 @@ public abstract class StressTestMixin {
             return;
         }
 
+        // Stage 1: build TNT sandwich (once)
+        if (tnt && stage == 1) {
+            buildTntSandwich(level);
+            stage = 2;
+            return;
+        }
+
+        // Stage 2: build entity platform (once)
+        if (entity && stage == 2) {
+            buildEntityPlatform(level);
+            stage = 3;
+        }
+
         tickCount++;
         int timeout = StressTestConfig.timeoutSeconds();
         if (stopped || (timeout > 0 && tickCount > timeout * 20)) {
@@ -75,31 +88,6 @@ public abstract class StressTestMixin {
         int rate = StressTestConfig.entitySpawnRate();
         final double spawnX = 0.5, spawnY = -29.0, spawnZ = 0.5;
 
-        // Build 3x3 chunk grass platform (one block below spawn)
-        if (stage == 1) {
-            int r = 1; // 3x3 chunks = radius 1
-            BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
-            int platformY = (int) spawnY - 1;
-            for (int cx = -r; cx <= r; cx++) {
-                for (int cz = -r; cz <= r; cz++) {
-                    for (int lx = 0; lx < 16; lx++)
-                        for (int lz = 0; lz < 16; lz++) {
-                            p.set(cx * 16 + lx, platformY, cz * 16 + lz);
-                            level.setBlock(p, Blocks.GRASS_BLOCK.defaultBlockState(), 3);
-                            // air above
-                            for (int dy = 1; dy <= 3; dy++) {
-                                p.set(cx * 16 + lx, platformY + dy, cz * 16 + lz);
-                                if (!level.getBlockState(p).isAir())
-                                    level.setBlock(p, Blocks.AIR.defaultBlockState(), 3);
-                            }
-                        }
-                }
-            }
-            LOG.info("Entity spawn platform: 3x3 chunks grass at y={}", platformY);
-            stage = 2;
-        }
-
-        // Spawn entities at single point for collision testing
         for (int i = 0; i < rate; i++) {
             ZombifiedPiglin piglin = new ZombifiedPiglin(EntityType.ZOMBIFIED_PIGLIN, level);
             piglin.setPos(spawnX, spawnY, spawnZ);
@@ -109,49 +97,71 @@ public abstract class StressTestMixin {
     }
 
     @Unique
+    private void buildEntityPlatform(ServerLevel level) {
+        final double spawnY = -29.0;
+        int r = 1;
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        int platformY = (int) spawnY - 1;
+        for (int cx = -r; cx <= r; cx++) {
+            for (int cz = -r; cz <= r; cz++) {
+                for (int lx = 0; lx < 16; lx++)
+                    for (int lz = 0; lz < 16; lz++) {
+                        p.set(cx * 16 + lx, platformY, cz * 16 + lz);
+                        level.setBlock(p, Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+                        for (int dy = 1; dy <= 3; dy++) {
+                            p.set(cx * 16 + lx, platformY + dy, cz * 16 + lz);
+                            if (!level.getBlockState(p).isAir())
+                                level.setBlock(p, Blocks.AIR.defaultBlockState(), 3);
+                        }
+                    }
+            }
+        }
+        LOG.info("Entity platform: 3x3 chunks grass at y={}", platformY);
+    }
+
+    @Unique
     private void runTnt(ServerLevel level) {
         int r = StressTestConfig.chunkRadius();
         int size = StressTestConfig.tntSize();
-        int half = size / 2;
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-
         for (int cx = -r; cx < r; cx++) {
             for (int cz = -r; cz < r; cz++) {
-                int bx = cx * 16 + 8, bz = cz * 16 + 8;
-
-                // 4 layers stone above TNT
-                for (int dx = -half; dx <= half; dx++)
-                    for (int dy = size; dy < size + 4; dy++)
-                        for (int dz = -half; dz <= half; dz++) {
-                            pos.set(bx + dx, BASE_Y + dy, bz + dz);
-                            if (!level.getBlockState(pos).is(Blocks.STONE))
-                                level.setBlock(pos, Blocks.STONE.defaultBlockState(), 3);
-                        }
-
-                // Middle: size layers of TNT
-                for (int dx = -half; dx <= half; dx++)
-                    for (int dy = 0; dy < size; dy++)
-                        for (int dz = -half; dz <= half; dz++) {
-                            pos.set(bx + dx, BASE_Y + dy, bz + dz);
-                            if (!level.getBlockState(pos).is(Blocks.TNT))
-                                level.setBlock(pos, Blocks.TNT.defaultBlockState(), 3);
-                        }
-
-                // 4 layers stone below TNT
-                for (int dx = -half; dx <= half; dx++)
-                    for (int dy = -4; dy < 0; dy++)
-                        for (int dz = -half; dz <= half; dz++) {
-                            pos.set(bx + dx, BASE_Y + dy, bz + dz);
-                            if (!level.getBlockState(pos).is(Blocks.STONE))
-                                level.setBlock(pos, Blocks.STONE.defaultBlockState(), 3);
-                        }
-
                 PrimedTnt tnt = new PrimedTnt(EntityType.TNT, level);
-                tnt.setPos(bx + 0.5, BASE_Y + 1, bz + 0.5);
+                tnt.setPos(cx * 16 + 8.5, BASE_Y + size + 0.5, cz * 16 + 8.5);
                 tnt.setFuse(1);
                 level.addFreshEntity(tnt);
             }
         }
+    }
+
+    @Unique
+    private void buildTntSandwich(ServerLevel level) {
+        int r = StressTestConfig.chunkRadius();
+        int size = StressTestConfig.tntSize();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        for (int cx = -r; cx < r; cx++) {
+            for (int cz = -r; cz < r; cz++) {
+                int bx = cx * 16, bz = cz * 16;
+                for (int lx = 0; lx < 16; lx++) {
+                    for (int lz = 0; lz < 16; lz++) {
+                        int wx = bx + lx, wz = bz + lz;
+                        for (int dy = 0; dy < size; dy++) {
+                            pos.set(wx, BASE_Y + dy, wz);
+                            level.setBlock(pos, Blocks.STONE.defaultBlockState(), 3);
+                        }
+                        for (int dy = size; dy < size * 2; dy++) {
+                            pos.set(wx, BASE_Y + dy, wz);
+                            level.setBlock(pos, Blocks.TNT.defaultBlockState(), 3);
+                        }
+                        for (int dy = size * 2; dy < size * 3; dy++) {
+                            pos.set(wx, BASE_Y + dy, wz);
+                            level.setBlock(pos, Blocks.STONE.defaultBlockState(), 3);
+                        }
+                    }
+                }
+            }
+        }
+        LOG.info("TNT sandwich: {} chunks, {} layers ({} stone+{} TNT+{} stone)",
+                (r * 2) * (r * 2), size * 3, size, size, size);
     }
 
     @Unique
