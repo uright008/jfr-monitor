@@ -16,12 +16,11 @@ import net.minecraft.world.level.block.HopperBlock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Unified stress test mixin — supports TNT and hopper modes
@@ -29,6 +28,8 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 @Mixin(ServerLevel.class)
 public abstract class StressTestMixin {
+
+    @Shadow public boolean noSave;
 
     @Unique private static final Logger LOG = LoggerFactory.getLogger("stress-test");
     @Unique private static final int BASE_Y = -30;
@@ -50,6 +51,7 @@ public abstract class StressTestMixin {
         if (!tnt && !hopper && !entity) return;
 
         if (stage == 0) {
+            this.noSave = true;
             int r = StressTestConfig.chunkRadius();
             ServerHelper.forceload(server, r);
             stage = 1;
@@ -71,21 +73,36 @@ public abstract class StressTestMixin {
     @Unique
     private void runEntitySpawn(ServerLevel level) {
         int rate = StressTestConfig.entitySpawnRate();
-        int rad = StressTestConfig.entitySpawnRadius();
-        double baseX = 0, baseY = -30, baseZ = 0;
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-        ThreadLocalRandom rng = ThreadLocalRandom.current();
+        final double spawnX = 0.5, spawnY = -29.0, spawnZ = 0.5;
 
+        // Build 3x3 chunk grass platform (one block below spawn)
+        if (stage == 1) {
+            int r = 1; // 3x3 chunks = radius 1
+            BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+            int platformY = (int) spawnY - 1;
+            for (int cx = -r; cx <= r; cx++) {
+                for (int cz = -r; cz <= r; cz++) {
+                    for (int lx = 0; lx < 16; lx++)
+                        for (int lz = 0; lz < 16; lz++) {
+                            p.set(cx * 16 + lx, platformY, cz * 16 + lz);
+                            level.setBlock(p, Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+                            // air above
+                            for (int dy = 1; dy <= 3; dy++) {
+                                p.set(cx * 16 + lx, platformY + dy, cz * 16 + lz);
+                                if (!level.getBlockState(p).isAir())
+                                    level.setBlock(p, Blocks.AIR.defaultBlockState(), 3);
+                            }
+                        }
+                }
+            }
+            LOG.info("Entity spawn platform: 3x3 chunks grass at y={}", platformY);
+            stage = 2;
+        }
+
+        // Spawn entities at single point for collision testing
         for (int i = 0; i < rate; i++) {
-            int cx = rng.nextInt(-rad, rad);
-            int cz = rng.nextInt(-rad, rad);
-            double x = cx * 16 + rng.nextDouble() * 16;
-            double z = cz * 16 + rng.nextDouble() * 16;
-            pos.set((int) x, (int) baseY, (int) z);
-            if (!level.getBlockState(pos).isAir()) continue;
-
             ZombifiedPiglin piglin = new ZombifiedPiglin(EntityType.ZOMBIFIED_PIGLIN, level);
-            piglin.setPos(x, baseY, z);
+            piglin.setPos(spawnX, spawnY, spawnZ);
             piglin.setPersistenceRequired();
             level.addFreshEntity(piglin);
         }
