@@ -5,11 +5,15 @@ import com.mojang.brigadier.StringReader;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HopperBlock;
-import net.minecraft.world.level.block.entity.HopperBlockEntity;
+import net.minecraft.world.phys.AABB;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -19,8 +23,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ServerLevel.class)
 public abstract class HopperStressMixin {
 
+    @Unique private static final Logger LOG = LoggerFactory.getLogger("stress-test:hopper");
     @Unique private static final int GRID = 16;
+    @Unique private static final int BASE_Y = -60;
+    @Unique private static final int MIN_ITEMS = 2000;
     @Unique private int stage;
+    @Unique private int stressTickCount;
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void hopperStressTick(CallbackInfo ci) {
@@ -31,44 +39,59 @@ public abstract class HopperStressMixin {
         if (server == null) return;
 
         if (stage == 0) {
+            LOG.info("Stage 0: forceloading...");
             runCmd(server, "forceload remove all");
             runCmd(server, "forceload add -4 -4 3 3");
             stage = 1;
             return;
         }
         if (stage == 1) {
+            LOG.info("Stage 1: building {}x{} hopper grid...", GRID, GRID);
             buildHoppers(level);
             stage = 2;
+            LOG.info("Stage 2: done, {} hoppers placed", GRID * GRID);
             return;
+        }
+
+        // Stage 2+: replenish items
+        stressTickCount++;
+        int timeout = StressTestConfig.timeoutSeconds();
+        if (timeout > 0 && stressTickCount > timeout * 20) return;
+
+        AABB gridArea = new AABB(0, BASE_Y + 2, 0, GRID, BASE_Y + 3, GRID);
+        int itemCount = level.getEntitiesOfClass(ItemEntity.class, gridArea, e -> true).size();
+
+        if (itemCount < MIN_ITEMS) {
+            BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+            for (int z = 0; z < GRID; z++) {
+                for (int x = 0; x < GRID; x++) {
+                    ItemEntity item = new ItemEntity(EntityType.ITEM, level);
+                    item.setItem(new ItemStack(Items.STONE, 1));
+                    item.setPos(x + 0.5, BASE_Y + 2.5, z + 0.5);
+                    item.setDeltaMovement(0, 0, 0);
+                    item.setPickUpDelay(0);
+                    level.addFreshEntity(item);
+                }
+            }
         }
     }
 
     @Unique
     private void buildHoppers(ServerLevel level) {
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-        int baseY = -60;
 
         for (int z = 0; z < GRID; z++) {
             for (int x = 0; x < GRID; x++) {
-                level.setBlock(new BlockPos(x, baseY, z), Blocks.STONE.defaultBlockState(), 3);
+                level.setBlock(new BlockPos(x, BASE_Y, z), Blocks.STONE.defaultBlockState(), 3);
 
-                Direction facing;
-                if (z % 2 == 0)
-                    facing = x < GRID - 1 ? Direction.EAST : (z < GRID - 1 ? Direction.SOUTH : Direction.DOWN);
-                else
-                    facing = x > 0 ? Direction.WEST : (z < GRID - 1 ? Direction.SOUTH : Direction.DOWN);
+                Direction facing = Direction.DOWN;
 
-                pos.set(x, baseY + 1, z);
+                pos.set(x, BASE_Y + 1, z);
                 level.setBlock(pos, Blocks.HOPPER.defaultBlockState()
                         .setValue(HopperBlock.FACING, facing)
                         .setValue(HopperBlock.ENABLED, true), 3);
-
-                HopperBlockEntity be = (HopperBlockEntity) level.getBlockEntity(pos);
-                if (be != null) be.setItem(0, new ItemStack(Items.STONE, 64));
             }
         }
-        pos.set(GRID - 1, baseY, GRID - 1);
-        level.setBlock(pos, Blocks.COMPOSTER.defaultBlockState(), 3);
     }
 
     @Unique
