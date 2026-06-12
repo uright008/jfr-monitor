@@ -6,7 +6,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.PrimedTnt;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -14,17 +13,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * Places one TNT machine per forceloaded chunk to test scalability.
- * Each chunk gets a 3x3x3 TNT cube with stone shell.
- */
 @Mixin(ServerLevel.class)
 public abstract class StressTestMixin {
 
     @Unique private int tickCount;
-    @Unique private boolean started;
-    @Unique private boolean stopped;
-    @Unique private static final int CHUNK_RADIUS = 8;
+    @Unique private boolean started, stopped;
     @Unique private static final int BASE_Y = -30;
 
     @Inject(method = "tick", at = @At("HEAD"))
@@ -37,9 +30,9 @@ public abstract class StressTestMixin {
 
         if (!started) {
             started = true;
+            int r = StressTestConfig.chunkRadius();
             runCmd(server, "forceload remove all");
-            runCmd(server, "forceload add -" + CHUNK_RADIUS + " -" + CHUNK_RADIUS
-                    + " " + (CHUNK_RADIUS - 1) + " " + (CHUNK_RADIUS - 1));
+            runCmd(server, "forceload add -" + r + " -" + r + " " + (r - 1) + " " + (r - 1));
             return;
         }
 
@@ -48,17 +41,25 @@ public abstract class StressTestMixin {
         int timeout = StressTestConfig.timeoutSeconds();
         if (timeout > 0 && tickCount > timeout * 20) { stopped = true; return; }
 
-        // Every tick: TNT machine in every chunk
+        int r = StressTestConfig.chunkRadius();
+        int size = StressTestConfig.tntSize();
+        int half = size / 2;
+
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-        for (int cx = -CHUNK_RADIUS; cx < CHUNK_RADIUS; cx++) {
-            for (int cz = -CHUNK_RADIUS; cz < CHUNK_RADIUS; cz++) {
+        for (int cx = -r; cx < r; cx++) {
+            for (int cz = -r; cz < r; cz++) {
                 int bx = cx * 16 + 8;
                 int bz = cz * 16 + 8;
 
-                // Single TNT block at chunk center, ignite
-                pos.set(bx, BASE_Y, bz);
-                if (!level.getBlockState(pos).is(Blocks.TNT))
-                    level.setBlock(pos, Blocks.TNT.defaultBlockState(), 3);
+                // TNT cube: size³ — no shell, raw performance test
+                for (int dx = -half; dx <= half; dx++)
+                    for (int dy = -half; dy <= half; dy++)
+                        for (int dz = -half; dz <= half; dz++) {
+                            pos.set(bx + dx, BASE_Y + dy, bz + dz);
+                            if (!level.getBlockState(pos).is(Blocks.TNT))
+                                level.setBlock(pos, Blocks.TNT.defaultBlockState(), 3);
+                        }
+
                 PrimedTnt tnt = new PrimedTnt(EntityType.TNT, level);
                 tnt.setPos(bx + 0.5, BASE_Y, bz + 0.5);
                 tnt.setFuse(1);
