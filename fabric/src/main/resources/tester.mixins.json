@@ -3,7 +3,8 @@
     "package": "com.github.uright008.tester.mixin",
     "compatibilityLevel": "JAVA_25",
     "mixins": [
-        "StressTestMixin"
+        "StressTestMixin",
+        "MinecraftServerMixin"
     ],
     "injectors": {
         "defaultRequire": 1
