@@ -3,8 +3,7 @@
     "package": "com.github.uright008.jfr.mixin",
     "compatibilityLevel": "JAVA_25",
     "mixins": [
-        "StressTestMixin",
-        "HopperStressMixin"
+        "StressTestMixin"
     ],
     "injectors": {
         "defaultRequire": 1
