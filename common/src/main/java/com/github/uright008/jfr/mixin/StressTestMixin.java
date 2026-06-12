@@ -6,6 +6,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -13,73 +14,57 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * Places one TNT machine per forceloaded chunk to test scalability.
+ * Each chunk gets a 3x3x3 TNT cube with stone shell.
+ */
 @Mixin(ServerLevel.class)
 public abstract class StressTestMixin {
 
-    @Unique
-    private static final BlockPos TNT_FROM   = new BlockPos(6, -30, 6);
-    @Unique
-    private static final BlockPos TNT_TO     = new BlockPos(10, -26, 10);
-    @Unique
-    private static final BlockPos SHELL_FROM = new BlockPos(4, -32, 4);
-    @Unique
-    private static final BlockPos SHELL_TO   = new BlockPos(12, -24, 12);
-    @Unique
-    private static final BlockPos IGNITE_POS = new BlockPos(8, -26, 8);
-
-    @Unique
-    private int stressTickCount;
-    @Unique
-    private boolean stressStarted;
-    @Unique
-    private boolean stressStopped;
+    @Unique private int tickCount;
+    @Unique private boolean started;
+    @Unique private boolean stopped;
+    @Unique private static final int CHUNK_RADIUS = 8;
+    @Unique private static final int BASE_Y = -30;
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void stressTestTick(CallbackInfo ci) {
         if (!StressTestConfig.isEnabled()) return;
         ServerLevel level = (ServerLevel) (Object) this;
         if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) return;
-
         var server = level.getServer();
         if (server == null) return;
 
-        if (!stressStarted) {
-            stressStarted = true;
-            // Bot provides chunk loading; forceload provides entity processing
+        if (!started) {
+            started = true;
             runCmd(server, "forceload remove all");
-            runCmd(server, "forceload add -4 -4 3 3");
-        }
-
-        stressTickCount++;
-        if (stressStopped) return;
-        int timeout = StressTestConfig.timeoutSeconds();
-        if (timeout > 0 && stressTickCount > timeout * 20) {
-            stressStopped = true;
+            runCmd(server, "forceload add -" + CHUNK_RADIUS + " -" + CHUNK_RADIUS
+                    + " " + (CHUNK_RADIUS - 1) + " " + (CHUNK_RADIUS - 1));
             return;
         }
 
+        tickCount++;
+        if (stopped) return;
+        int timeout = StressTestConfig.timeoutSeconds();
+        if (timeout > 0 && tickCount > timeout * 20) { stopped = true; return; }
+
+        // Every tick: TNT machine in every chunk
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        for (int cx = -CHUNK_RADIUS; cx < CHUNK_RADIUS; cx++) {
+            for (int cz = -CHUNK_RADIUS; cz < CHUNK_RADIUS; cz++) {
+                int bx = cx * 16 + 8;
+                int bz = cz * 16 + 8;
 
-        for (int x = SHELL_FROM.getX(); x <= SHELL_TO.getX(); x++)
-            for (int y = SHELL_FROM.getY(); y <= SHELL_TO.getY(); y++)
-                for (int z = SHELL_FROM.getZ(); z <= SHELL_TO.getZ(); z++) {
-                    pos.set(x, y, z);
-                    if (level.getBlockState(pos).is(Blocks.TNT))
-                        level.setBlock(pos, Blocks.STONE.defaultBlockState(), 3);
-                }
-
-        for (int x = TNT_FROM.getX(); x <= TNT_TO.getX(); x++)
-            for (int y = TNT_FROM.getY(); y <= TNT_TO.getY(); y++)
-                for (int z = TNT_FROM.getZ(); z <= TNT_TO.getZ(); z++) {
-                    pos.set(x, y, z);
-                    if (!level.getBlockState(pos).is(Blocks.TNT))
-                        level.setBlock(pos, Blocks.TNT.defaultBlockState(), 3);
-                }
-
-        PrimedTnt tnt = new PrimedTnt(EntityType.TNT, level);
-        tnt.setPos(IGNITE_POS.getX() + 0.5, IGNITE_POS.getY(), IGNITE_POS.getZ() + 0.5);
-        tnt.setFuse(1);
-        level.addFreshEntity(tnt);
+                // Single TNT block at chunk center, ignite
+                pos.set(bx, BASE_Y, bz);
+                if (!level.getBlockState(pos).is(Blocks.TNT))
+                    level.setBlock(pos, Blocks.TNT.defaultBlockState(), 3);
+                PrimedTnt tnt = new PrimedTnt(EntityType.TNT, level);
+                tnt.setPos(bx + 0.5, BASE_Y, bz + 0.5);
+                tnt.setFuse(1);
+                level.addFreshEntity(tnt);
+            }
+        }
     }
 
     @Unique

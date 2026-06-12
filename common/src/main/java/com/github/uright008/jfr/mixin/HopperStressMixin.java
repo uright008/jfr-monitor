@@ -39,7 +39,7 @@ public abstract class HopperStressMixin {
         if (stage == 0) {
             LOG.info("Stage 0: forceloading...");
             runCmd(server, "forceload remove all");
-            runCmd(server, "forceload add -4 -4 3 3");
+            runCmd(server, "forceload add -8 -8 7 7");
             stage = 1;
             return;
         }
