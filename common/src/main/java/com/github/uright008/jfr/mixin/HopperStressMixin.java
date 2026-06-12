@@ -23,10 +23,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class HopperStressMixin {
 
     @Unique private static final Logger LOG = LoggerFactory.getLogger("stress-test:hopper");
-    @Unique private static final int GRID = 16;
     @Unique private static final int BASE_Y = -60;
     @Unique private int stage;
-    @Unique private int stressTickCount;
+    @Unique private int tickCount;
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void hopperStressTick(CallbackInfo ci) {
@@ -36,53 +35,50 @@ public abstract class HopperStressMixin {
         var server = level.getServer();
         if (server == null) return;
 
+        int r = StressTestConfig.chunkRadius();
+
         if (stage == 0) {
-            LOG.info("Stage 0: forceloading...");
+            LOG.info("Stage 0: forceloading {}x{} chunks...", r*2, r*2);
             runCmd(server, "forceload remove all");
-            runCmd(server, "forceload add -8 -8 7 7");
+            runCmd(server, "forceload add -" + r + " -" + r + " " + (r - 1) + " " + (r - 1));
             stage = 1;
             return;
         }
+
         if (stage == 1) {
-            LOG.info("Stage 1: building {}x{} hopper grid...", GRID, GRID);
-            buildHoppers(level);
+            LOG.info("Stage 1: building {} hoppers...", (r*2)*(r*2));
+            BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+            for (int cx = -r; cx < r; cx++) {
+                for (int cz = -r; cz < r; cz++) {
+                    int bx = cx * 16 + 8;
+                    int bz = cz * 16 + 8;
+                    level.setBlock(new BlockPos(bx, BASE_Y, bz), Blocks.STONE.defaultBlockState(), 3);
+                    pos.set(bx, BASE_Y + 1, bz);
+                    level.setBlock(pos, Blocks.HOPPER.defaultBlockState()
+                            .setValue(HopperBlock.FACING, Direction.DOWN)
+                            .setValue(HopperBlock.ENABLED, true), 3);
+                }
+            }
             stage = 2;
-            LOG.info("Stage 2: done, {} hoppers placed", GRID * GRID);
+            LOG.info("Stage 2: done");
             return;
         }
 
-        // Stage 2+: spawn items above hoppers every tick
-        stressTickCount++;
+        // Stage 2+: spawn items above each hopper every tick
+        tickCount++;
         int timeout = StressTestConfig.timeoutSeconds();
-        if (timeout > 0 && stressTickCount > timeout * 20) return;
+        if (timeout > 0 && tickCount > timeout * 20) return;
 
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-        for (int z = 0; z < GRID; z++) {
-            for (int x = 0; x < GRID; x++) {
+        for (int cx = -r; cx < r; cx++) {
+            for (int cz = -r; cz < r; cz++) {
+                int bx = cx * 16 + 8;
+                int bz = cz * 16 + 8;
                 ItemEntity item = new ItemEntity(EntityType.ITEM, level);
                 item.setItem(new ItemStack(Items.STONE, 1));
-                item.setPos(x + 0.5, BASE_Y + 2.5, z + 0.5);
+                item.setPos(bx + 0.5, BASE_Y + 2.5, bz + 0.5);
                 item.setDeltaMovement(0, 0, 0);
                 item.setPickUpDelay(0);
                 level.addFreshEntity(item);
-            }
-        }
-    }
-
-    @Unique
-    private void buildHoppers(ServerLevel level) {
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-
-        for (int z = 0; z < GRID; z++) {
-            for (int x = 0; x < GRID; x++) {
-                level.setBlock(new BlockPos(x, BASE_Y, z), Blocks.STONE.defaultBlockState(), 3);
-
-                Direction facing = Direction.DOWN;
-
-                pos.set(x, BASE_Y + 1, z);
-                level.setBlock(pos, Blocks.HOPPER.defaultBlockState()
-                        .setValue(HopperBlock.FACING, facing)
-                        .setValue(HopperBlock.ENABLED, true), 3);
             }
         }
     }
