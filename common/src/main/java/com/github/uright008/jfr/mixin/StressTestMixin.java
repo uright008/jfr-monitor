@@ -8,6 +8,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.entity.monster.zombie.ZombifiedPiglin;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
@@ -19,6 +20,8 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Unified stress test mixin — supports TNT and hopper modes
@@ -43,7 +46,8 @@ public abstract class StressTestMixin {
 
         boolean tnt = StressTestConfig.isEnabled();
         boolean hopper = StressTestConfig.isHopperEnabled();
-        if (!tnt && !hopper) return;
+        boolean entity = StressTestConfig.isEntitySpawnEnabled();
+        if (!tnt && !hopper && !entity) return;
 
         if (stage == 0) {
             int r = StressTestConfig.chunkRadius();
@@ -61,6 +65,30 @@ public abstract class StressTestMixin {
 
         if (tnt) runTnt(level);
         if (hopper) runHopper(level);
+        if (entity) runEntitySpawn(level);
+    }
+
+    @Unique
+    private void runEntitySpawn(ServerLevel level) {
+        int rate = StressTestConfig.entitySpawnRate();
+        int rad = StressTestConfig.entitySpawnRadius();
+        double baseX = 0, baseY = -30, baseZ = 0;
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        ThreadLocalRandom rng = ThreadLocalRandom.current();
+
+        for (int i = 0; i < rate; i++) {
+            int cx = rng.nextInt(-rad, rad);
+            int cz = rng.nextInt(-rad, rad);
+            double x = cx * 16 + rng.nextDouble() * 16;
+            double z = cz * 16 + rng.nextDouble() * 16;
+            pos.set((int) x, (int) baseY, (int) z);
+            if (!level.getBlockState(pos).isAir()) continue;
+
+            ZombifiedPiglin piglin = new ZombifiedPiglin(EntityType.ZOMBIFIED_PIGLIN, level);
+            piglin.setPos(x, baseY, z);
+            piglin.setPersistenceRequired();
+            level.addFreshEntity(piglin);
+        }
     }
 
     @Unique
