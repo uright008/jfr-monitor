@@ -45,7 +45,7 @@ public abstract class StressTestMixin {
         var server = level.getServer();
         if (server == null) return;
 
-        boolean tnt = StressTestConfig.isEnabled();
+        boolean tnt = StressTestConfig.isTntEnabled();
         boolean hopper = StressTestConfig.isHopperEnabled();
         boolean entity = StressTestConfig.isEntitySpawnEnabled();
         if (!tnt && !hopper && !entity) return;
