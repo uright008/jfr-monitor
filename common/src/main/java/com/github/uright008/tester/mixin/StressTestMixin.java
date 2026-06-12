@@ -35,7 +35,7 @@ public abstract class StressTestMixin {
     @Unique private static final int BASE_Y = -30;
     @Unique private static final int HOPPER_Y = -60;
 
-    @Unique private int stage, tickCount;
+    @Unique private int stage, tickCount, entityCount;
     @Unique private boolean tntBuilt, entityBuilt, stopped;
 
     @Inject(method = "tick", at = @At("HEAD"))
@@ -83,25 +83,35 @@ public abstract class StressTestMixin {
 
     @Unique
     private void runEntitySpawn(ServerLevel level) {
-        int rate = StressTestConfig.entitySpawnRate();
-        final double spawnX = 0.5, spawnY = -29.0, spawnZ = 0.5;
+        int max = StressTestConfig.maxEntities();
+        if (entityCount >= max) return;
 
-        for (int i = 0; i < rate; i++) {
+        int rate = StressTestConfig.entitySpawnRate();
+        int toSpawn = Math.min(rate, max - entityCount);
+        int rad = Math.max(1, StressTestConfig.chunkRadius());
+        java.util.concurrent.ThreadLocalRandom rng = java.util.concurrent.ThreadLocalRandom.current();
+
+        for (int i = 0; i < toSpawn; i++) {
+            int cx = rng.nextInt(-rad, rad);
+            int cz = rng.nextInt(-rad, rad);
+            double x = cx * 16 + rng.nextDouble() * 16;
+            double z = cz * 16 + rng.nextDouble() * 16;
+
             ZombifiedPiglin piglin = new ZombifiedPiglin(EntityType.ZOMBIFIED_PIGLIN, level);
-            piglin.setPos(spawnX, spawnY, spawnZ);
+            piglin.setPos(x, -29.0, z);
             piglin.setPersistenceRequired();
             level.addFreshEntity(piglin);
+            entityCount++;
         }
     }
 
     @Unique
     private void buildEntityPlatform(ServerLevel level) {
-        final double spawnY = -29.0;
-        int r = 1;
+        int r = Math.max(1, StressTestConfig.chunkRadius());
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
-        int platformY = (int) spawnY - 1;
-        for (int cx = -r; cx <= r; cx++) {
-            for (int cz = -r; cz <= r; cz++) {
+        int platformY = -30;
+        for (int cx = -r; cx < r; cx++) {
+            for (int cz = -r; cz < r; cz++) {
                 for (int lx = 0; lx < 16; lx++)
                     for (int lz = 0; lz < 16; lz++) {
                         p.set(cx * 16 + lx, platformY, cz * 16 + lz);
@@ -114,7 +124,7 @@ public abstract class StressTestMixin {
                     }
             }
         }
-        LOG.info("Entity platform: 3x3 chunks grass at y={}", platformY);
+        LOG.info("Entity platform: {}x{} chunks grass at y={}", r*2, r*2, platformY);
     }
 
     @Unique
