@@ -26,13 +26,13 @@ public final class ProfilerCommand implements ParallelSubCommand {
 
     @Override
     public String getStatusLine() {
-        return "\u00a77  JFR:       " + (ProfilerMonitor.isRecording() ? "\u00a7aREC" : "\u00a77off");
+        return "\u00a77  Profiler:  " + (ProfilerMonitor.isRecording() ? "\u00a7aREC" : "\u00a77off");
     }
 
     private int showStatus(CommandContext<CommandSourceStack> ctx) {
-        String msg = "\u00a7e/parallel jfr\n"
+        String msg = "\u00a7e/parallel profiler\n"
                 + "\u00a77  Status: " + (ProfilerMonitor.isRecording() ? "\u00a7aRECORDING" : "\u00a77idle") + "\n"
-                + "\u00a77Usage: /parallel jfr [start [seconds] | stop]";
+                + "\u00a77Usage: /parallel profiler [start [seconds] | stop]";
         ctx.getSource().sendSuccess(() -> Component.literal(msg), false);
         return 1;
     }
@@ -40,14 +40,14 @@ public final class ProfilerCommand implements ParallelSubCommand {
     private int start(CommandContext<CommandSourceStack> ctx, int seconds) {
         ProfilerMonitor.autoRecord(seconds);
         ctx.getSource().sendSuccess(
-                () -> Component.literal("\u00a7aJFR recording started (" + seconds + "s) → run/profiler/"), true);
+                () -> Component.literal("\u00a7aProfiler recording started (" + seconds + "s) \u2192 config/spark/"), true);
         return 1;
     }
 
     private int stop(CommandContext<CommandSourceStack> ctx) {
         ProfilerMonitor.stop();
         ctx.getSource().sendSuccess(
-                () -> Component.literal("\u00a7aJFR recording saved to run/profiler/"), true);
+                () -> Component.literal("\u00a7aProfiler recording saved to config/spark/"), true);
         return 1;
     }
 }

@@ -76,7 +76,7 @@ public final class ProfilerMonitor {
             } catch (IOException e) {
                 LOGGER.error("Failed to save Profiler recording", e);
             }
-        }, "jfr-dump");
+        }, "profiler-dump");
         dumpThread.setDaemon(true);
         dumpThread.start();
     }
@@ -117,7 +117,7 @@ public final class ProfilerMonitor {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-        }, "jfr-auto-dump");
+        }, "profiler-auto-dump");
         timerThread.setDaemon(true);
         timerThread.start();
     }
@@ -130,7 +130,7 @@ public final class ProfilerMonitor {
 
     private static String newFilename() {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
-        return "jfr-" + timestamp + ".jfr";
+        return "profiler-" + timestamp + ".jfr";
     }
 
     private static Path dumpAndClose(Recording recording, String filename) throws IOException {

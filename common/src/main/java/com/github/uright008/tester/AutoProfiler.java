@@ -50,7 +50,7 @@ public final class AutoProfiler {
                 LOG.error("Auto-profile failed", e);
                 if (timeout > 0) server.halt(false);
             }
-        }, "jfr-auto-profile");
+        }, "profiler-auto-profile");
         profileThread.setDaemon(true);
         profileThread.start();
     }

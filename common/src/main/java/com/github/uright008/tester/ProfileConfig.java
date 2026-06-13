@@ -16,7 +16,7 @@ public final class ProfileConfig extends ParallelConfig {
     private volatile String postSpawnCommand;
 
     private ProfileConfig() {
-        super("jfr-monitor");
+        super("profiler-monitor");
     }
 
     public static void init() {
@@ -44,7 +44,7 @@ public final class ProfileConfig extends ParallelConfig {
         if (json.has("botY")) botY = json.get("botY").getAsInt();
         if (json.has("botZ")) botZ = json.get("botZ").getAsInt();
         if (json.has("postSpawnCommand")) postSpawnCommand = json.get("postSpawnCommand").getAsString();
-        logger().info("JFR auto-profile: {} (bot at {},{},{})",
+        logger().info("Profiler auto-profile: {} (bot at {},{},{})",
                 autoProfile ? "ON" : "OFF", botX, botY, botZ);
     }
 

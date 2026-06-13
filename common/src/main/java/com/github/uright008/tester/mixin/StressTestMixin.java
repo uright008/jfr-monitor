@@ -264,19 +264,20 @@ public abstract class StressTestMixin {
             case BENCH_MEASURE -> {
                 if (benchPhaseTick == 0) {
                     ServerHelper.runCommand(level.getServer(),
-                            "spark profiler start --timeout " + StressTestConfig.benchmarkSeconds()
-                            + " --thread * --comment bench-" + target);
+                            "spark profiler start --thread *");
                     benchSparkTick = level.getServer().getTickCount();
                 }
                 benchMSPTAccum += level.getServer().getAverageTickTimeNanos();
                 benchPhaseTick++;
                 if (benchPhaseTick >= measureTicks) {
                     long avgNs = benchMSPTAccum / benchPhaseTick;
-                    LOG.info("BENCH[{}] entities={} mspt={}ms tps={} sparkTicks={}",
+                    ServerHelper.runCommand(level.getServer(),
+                            "spark profiler stop --output bench-" + target + ".sparkprofile");
+                    LOG.info("BENCH[{}] entities={} mspt={}ms tps={} spark=bench-{}.sparkprofile",
                             benchStep, entityCount,
                             String.format("%.2f", avgNs / 1_000_000.0),
                             String.format("%.1f", 1000.0 / (avgNs / 1_000_000.0)),
-                            level.getServer().getTickCount() - benchSparkTick);
+                            target);
                     benchPhase = BENCH_CLEAN;
                 }
             }
