@@ -14,6 +14,8 @@ public final class StressTestConfig extends ParallelConfig {
     private volatile int tntSize;
     private volatile int entitySpawnRate;
     private volatile int maxEntities;
+    private volatile int[] benchmarkSteps;
+    private volatile int benchmarkSeconds;
 
     private StressTestConfig() { super("stress-test"); }
 
@@ -23,6 +25,7 @@ public final class StressTestConfig extends ParallelConfig {
     public static boolean isTnt() { return INSTANCE.loaded && "tnt".equals(INSTANCE.mode); }
     public static boolean isHopper() { return INSTANCE.loaded && "hopper".equals(INSTANCE.mode); }
     public static boolean isEntity() { return INSTANCE.loaded && "entity".equals(INSTANCE.mode); }
+    public static boolean isBenchmark() { return INSTANCE.loaded && "benchmark".equals(INSTANCE.mode); }
 
     public static int timeoutSeconds() { return INSTANCE.timeoutSeconds; }
     public static boolean waitForPlayer() { return INSTANCE.waitForPlayer; }
@@ -30,6 +33,8 @@ public final class StressTestConfig extends ParallelConfig {
     public static int tntSize() { return INSTANCE.tntSize; }
     public static int entitySpawnRate() { return INSTANCE.entitySpawnRate; }
     public static int maxEntities() { return INSTANCE.maxEntities; }
+    public static int[] benchmarkSteps() { return INSTANCE.benchmarkSteps; }
+    public static int benchmarkSeconds() { return INSTANCE.benchmarkSeconds; }
 
     public static String getMode() { return INSTANCE.mode; }
     public static void setMode(String v) { INSTANCE.mode = v; INSTANCE.save(); }
@@ -43,10 +48,12 @@ public final class StressTestConfig extends ParallelConfig {
         timeoutSeconds = 30;
         waitForPlayer = false;
         mode = "";
-        chunkRadius = 1;
+        chunkRadius = 2;
         tntSize = 3;
         entitySpawnRate = 10;
         maxEntities = 3000;
+        benchmarkSteps = new int[]{1000, 3000, 5000, 7000, 10000};
+        benchmarkSeconds = 30;
     }
 
     @Override
@@ -59,7 +66,13 @@ public final class StressTestConfig extends ParallelConfig {
         if (json.has("tntSize")) tntSize = Math.max(1, Math.min(5, json.get("tntSize").getAsInt()));
         if (json.has("entitySpawnRate")) entitySpawnRate = Math.max(1, json.get("entitySpawnRate").getAsInt());
         if (json.has("maxEntities")) maxEntities = Math.max(1, json.get("maxEntities").getAsInt());
-        logger().info("Stress test: mode={} timeout={}s chunkRadius={}", mode.isEmpty() ? "OFF" : mode, timeoutSeconds, chunkRadius);
+        if (json.has("benchmarkSteps")) {
+            var arr = json.getAsJsonArray("benchmarkSteps");
+            benchmarkSteps = new int[arr.size()];
+            for (int i = 0; i < arr.size(); i++) benchmarkSteps[i] = arr.get(i).getAsInt();
+        }
+        if (json.has("benchmarkSeconds")) benchmarkSeconds = Math.max(5, json.get("benchmarkSeconds").getAsInt());
+        logger().info("Stress test: mode={} timeout={}s", mode.isEmpty() ? "OFF" : mode, timeoutSeconds);
     }
 
     @Override
@@ -72,6 +85,10 @@ public final class StressTestConfig extends ParallelConfig {
         json.addProperty("tntSize", tntSize);
         json.addProperty("entitySpawnRate", entitySpawnRate);
         json.addProperty("maxEntities", maxEntities);
+        var steps = new com.google.gson.JsonArray();
+        for (int s : benchmarkSteps) steps.add(s);
+        json.add("benchmarkSteps", steps);
+        json.addProperty("benchmarkSeconds", benchmarkSeconds);
         return json;
     }
 }

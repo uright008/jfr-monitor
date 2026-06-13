@@ -37,6 +37,9 @@ public abstract class StressTestMixin {
 
     @Unique private int stage, tickCount, entityCount;
     @Unique private boolean tntBuilt, entityBuilt, stopped;
+    @Unique private int benchStep, benchPhase, benchPhaseTick;
+    @Unique private long benchMSPTAccum;
+    @Unique private static final int BENCH_SPAWN = 0, BENCH_SETTLE = 1, BENCH_MEASURE = 2, BENCH_CLEAN = 3;
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void stressTestTick(CallbackInfo ci) {
@@ -48,7 +51,8 @@ public abstract class StressTestMixin {
         boolean tnt = StressTestConfig.isTnt();
         boolean hopper = StressTestConfig.isHopper();
         boolean entity = StressTestConfig.isEntity();
-        if (!tnt && !hopper && !entity) return;
+        boolean bench = StressTestConfig.isBenchmark();
+        if (!tnt && !hopper && !entity && !bench) return;
 
         if (stage == 0) {
             this.noSave = true;
@@ -58,15 +62,15 @@ public abstract class StressTestMixin {
             return;
         }
 
-        // Build phases — each independent
-        if (tnt && !tntBuilt) {
-            buildTntSandwich(level);
-            tntBuilt = true;
-            return;
-        }
-        if (entity && !entityBuilt) {
+        // Build platform once
+        if ((entity || bench) && !entityBuilt) {
             buildEntityPlatform(level);
             entityBuilt = true;
+        }
+
+        if (bench) {
+            runBenchmark(level);
+            return;
         }
 
         tickCount++;
@@ -203,6 +207,80 @@ public abstract class StressTestMixin {
                 item.setDeltaMovement(0, 0, 0);
                 item.setPickUpDelay(0);
                 level.addFreshEntity(item);
+            }
+        }
+    }
+
+    @Unique
+    private void runBenchmark(ServerLevel level) {
+        int[] steps = StressTestConfig.benchmarkSteps();
+        if (benchStep >= steps.length) return;
+
+        int target = steps[benchStep];
+        int settleTicks = 20 * 5;  // 5s settle
+        int measureTicks = 20 * StressTestConfig.benchmarkSeconds();
+
+        switch (benchPhase) {
+            case BENCH_SPAWN -> {
+                if (entityCount < target) {
+                    int rate = StressTestConfig.entitySpawnRate();
+                    int toSpawn = Math.min(rate, target - entityCount);
+                    int rad = Math.max(1, StressTestConfig.chunkRadius());
+                    var rng = java.util.concurrent.ThreadLocalRandom.current();
+                    for (int i = 0; i < toSpawn; i++) {
+                        int cx = rng.nextInt(-rad, rad);
+                        int cz = rng.nextInt(-rad, rad);
+                        double x = cx * 16 + rng.nextDouble() * 16;
+                        double z = cz * 16 + rng.nextDouble() * 16;
+                        ZombifiedPiglin p = new ZombifiedPiglin(EntityType.ZOMBIFIED_PIGLIN, level);
+                        p.setPos(x, -29, z);
+                        p.setPersistenceRequired();
+                        level.addFreshEntity(p);
+                        entityCount++;
+                    }
+                } else {
+                    benchPhase = BENCH_SETTLE;
+                    benchPhaseTick = 0;
+                    benchMSPTAccum = 0;
+                }
+            }
+            case BENCH_SETTLE -> {
+                if (++benchPhaseTick >= settleTicks) {
+                    benchPhase = BENCH_MEASURE;
+                    benchPhaseTick = 0;
+                    benchMSPTAccum = 0;
+                }
+            }
+            case BENCH_MEASURE -> {
+                benchMSPTAccum += level.getServer().getAverageTickTimeNanos();
+                benchPhaseTick++;
+                if (benchPhaseTick >= measureTicks) {
+                    long avgNs = benchMSPTAccum / benchPhaseTick;
+                    LOG.info("BENCH[{}] entities={} mspt={}ms tps={}",
+                            benchStep, entityCount,
+                            avgNs / 1_000_000.0, 1000.0 / (avgNs / 1_000_000.0));
+                    benchPhase = BENCH_CLEAN;
+                }
+            }
+            case BENCH_CLEAN -> {
+                // Collect first, then kill (avoid concurrent modification)
+                var toKill = new java.util.ArrayList<ZombifiedPiglin>();
+                for (var e : level.getEntitiesOfClass(ZombifiedPiglin.class,
+                        new net.minecraft.world.phys.AABB(-100, -64, -100, 100, 320, 100),
+                        p -> true)) {
+                    toKill.add(e);
+                }
+                // Keep 1 entity to prevent server auto-pause
+                int keep = Math.min(1, toKill.size());
+                for (int i = 0; i < toKill.size() - keep; i++) {
+                    toKill.get(i).remove(net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+                }
+                entityCount = keep;
+                benchStep++;
+                benchPhase = BENCH_SPAWN;
+                if (benchStep >= steps.length) {
+                    LOG.info("BENCH complete: {} steps", steps.length);
+                }
             }
         }
     }
