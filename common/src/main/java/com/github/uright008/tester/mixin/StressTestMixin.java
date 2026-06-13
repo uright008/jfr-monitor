@@ -6,6 +6,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.chicken.Chicken;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.monster.zombie.ZombifiedPiglin;
@@ -129,6 +130,15 @@ public abstract class StressTestMixin {
             }
         }
         LOG.info("Entity platform: {}x{} chunks grass at y={}", r*2, r*2, platformY);
+
+        // Anchor chicken at y=256 to prevent server auto-pause
+        // Anchor chicken at y=256 to prevent server auto-pause
+        level.setBlock(new BlockPos(0, 255, 0), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+        Chicken anchor = new Chicken(EntityType.CHICKEN, level);
+        anchor.setPos(0.5, 256, 0.5);
+        anchor.setNoAi(true);
+        anchor.setPersistenceRequired();
+        level.addFreshEntity(anchor);
     }
 
     @Unique
@@ -270,12 +280,10 @@ public abstract class StressTestMixin {
                         p -> true)) {
                     toKill.add(e);
                 }
-                // Keep 1 entity to prevent server auto-pause
-                int keep = Math.min(1, toKill.size());
-                for (int i = 0; i < toKill.size() - keep; i++) {
-                    toKill.get(i).remove(net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+                for (var e : toKill) {
+                    e.remove(net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
                 }
-                entityCount = keep;
+                entityCount = 0;
                 benchStep++;
                 benchPhase = BENCH_SPAWN;
                 if (benchStep >= steps.length) {
