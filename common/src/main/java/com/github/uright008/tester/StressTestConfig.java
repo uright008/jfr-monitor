@@ -52,7 +52,7 @@ public final class StressTestConfig extends ParallelConfig {
         tntSize = 3;
         entitySpawnRate = 10;
         maxEntities = 3000;
-        benchmarkSteps = new int[]{1000, 3000, 5000, 7000, 10000};
+        benchmarkSteps = new int[]{5000, 10000};
         benchmarkSeconds = 30;
     }
 

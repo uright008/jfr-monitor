@@ -38,9 +38,9 @@ public abstract class StressTestMixin {
 
     @Unique private int stage, tickCount, entityCount;
     @Unique private boolean tntBuilt, entityBuilt, stopped;
-    @Unique private int benchStep, benchPhase, benchPhaseTick;
+    @Unique private int benchStep, benchPhase, benchPhaseTick, benchSparkTick;
     @Unique private long benchMSPTAccum;
-    @Unique private static final int BENCH_SPAWN = 0, BENCH_SETTLE = 1, BENCH_MEASURE = 2, BENCH_CLEAN = 3;
+    @Unique private static final int BENCH_SPAWN = 0, BENCH_SETTLE = 1, BENCH_MEASURE = 2, BENCH_CLEAN = 3, BENCH_DONE = 4;
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void stressTestTick(CallbackInfo ci) {
@@ -262,13 +262,20 @@ public abstract class StressTestMixin {
                 }
             }
             case BENCH_MEASURE -> {
+                if (benchPhaseTick == 0) {
+                    ServerHelper.runCommand(level.getServer(),
+                            "spark profiler start --timeout " + StressTestConfig.benchmarkSeconds() + " --thread * --comment bench-" + target);
+                    benchSparkTick = level.getServer().getTickCount();
+                }
                 benchMSPTAccum += level.getServer().getAverageTickTimeNanos();
                 benchPhaseTick++;
                 if (benchPhaseTick >= measureTicks) {
                     long avgNs = benchMSPTAccum / benchPhaseTick;
-                    LOG.info("BENCH[{}] entities={} mspt={}ms tps={}",
+                    LOG.info("BENCH[{}] entities={} mspt={}ms tps={} sparkTicks={}",
                             benchStep, entityCount,
-                            avgNs / 1_000_000.0, 1000.0 / (avgNs / 1_000_000.0));
+                            String.format("%.2f", avgNs / 1_000_000.0),
+                            String.format("%.1f", 1000.0 / (avgNs / 1_000_000.0)),
+                            level.getServer().getTickCount() - benchSparkTick);
                     benchPhase = BENCH_CLEAN;
                 }
             }
