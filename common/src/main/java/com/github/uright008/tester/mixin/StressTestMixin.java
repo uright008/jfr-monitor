@@ -264,7 +264,8 @@ public abstract class StressTestMixin {
             case BENCH_MEASURE -> {
                 if (benchPhaseTick == 0) {
                     ServerHelper.runCommand(level.getServer(),
-                            "spark profiler start --timeout " + StressTestConfig.benchmarkSeconds() + " --thread * --comment bench-" + target);
+                            "spark profiler start --timeout " + StressTestConfig.benchmarkSeconds()
+                            + " --thread * --comment bench-" + target);
                     benchSparkTick = level.getServer().getTickCount();
                 }
                 benchMSPTAccum += level.getServer().getAverageTickTimeNanos();
